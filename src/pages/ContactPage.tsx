@@ -3,14 +3,36 @@ import { motion } from 'motion/react';
 import { useForm } from 'react-hook-form';
 import { CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { submitNetlifyForm } from '../lib/netlifyForms';
+
+type ContactFormFields = {
+  name: string;
+  email: string;
+  company?: string;
+  website?: string;
+  phone?: string;
+  message: string;
+  'bot-field'?: string;
+};
 
 export const ContactPage = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors } } = useForm<ContactFormFields>();
   const [submitted, setSubmitted] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
-  const onSubmit = (data: any) => {
-    console.log('Form Data:', data);
-    setSubmitted(true);
+  const onSubmit = async (data: ContactFormFields) => {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await submitNetlifyForm('contact', data);
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Netlify form submit failed', error);
+      setSubmitError('We could not send your message right now. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -75,8 +97,15 @@ export const ContactPage = () => {
                   name="contact"
                   method="POST"
                   data-netlify="true"
+                  netlify-honeypot="bot-field"
                 >
                   <input type="hidden" name="form-name" value="contact" />
+                  <div className="hidden">
+                    <label>
+                      Don&apos;t fill this out if you&apos;re human:
+                      <input {...register('bot-field')} />
+                    </label>
+                  </div>
                   
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -146,10 +175,14 @@ export const ContactPage = () => {
 
                   <button 
                     type="submit"
+                    disabled={isSubmitting}
                     className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                   >
-                    Send Message
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
                   </button>
+                  {submitError && (
+                    <p className="text-sm text-red-600">{submitError}</p>
+                  )}
                 </form>
               )}
             </div>

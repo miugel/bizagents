@@ -14,6 +14,17 @@ import {
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { cn } from '../lib/utils';
+import { submitNetlifyForm } from '../lib/netlifyForms';
+
+type ContactFormFields = {
+  name: string;
+  email: string;
+  company?: string;
+  website?: string;
+  phone?: string;
+  message: string;
+  'bot-field'?: string;
+};
 
 const Hero = () => {
   return (
@@ -292,12 +303,23 @@ const Testimonials = () => {
 };
 
 const ContactForm = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors } } = useForm<ContactFormFields>();
   const [submitted, setSubmitted] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
-  const onSubmit = (data: any) => {
-    console.log('Form Data:', data);
-    setSubmitted(true);
+  const onSubmit = async (data: ContactFormFields) => {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await submitNetlifyForm('contact-home', data);
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Netlify form submit failed', error);
+      setSubmitError('We could not send your message right now. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -335,8 +357,15 @@ const ContactForm = () => {
                 name="contact-home"
                 method="POST"
                 data-netlify="true"
+                netlify-honeypot="bot-field"
               >
                 <input type="hidden" name="form-name" value="contact-home" />
+                <div className="hidden">
+                  <label>
+                    Don&apos;t fill this out if you&apos;re human:
+                    <input {...register('bot-field')} />
+                  </label>
+                </div>
                 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -413,10 +442,14 @@ const ContactForm = () => {
                 <div className="pt-4">
                   <button 
                     type="submit"
+                    disabled={isSubmitting}
                     className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                   >
-                    Send Message
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
                   </button>
+                  {submitError && (
+                    <p className="text-sm text-red-600 mt-3">{submitError}</p>
+                  )}
                   <p className="text-center text-xs text-slate-400 mt-4">
                     By submitting this form, you agree to our <Link to="/privacy" className="underline">Privacy Policy</Link> and <Link to="/terms" className="underline">Terms of Service</Link>.
                   </p>
