@@ -11,13 +11,25 @@ export async function submitNetlifyForm(
     }
   }
 
-  const response = await fetch('/', {
+  const isHttps = window.location.protocol === 'https:';
+  const request = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: body.toString(),
-  });
+  } as const;
+
+  // If someone opens the site over HTTP, avoid CORS failures during protocol redirect.
+  if (!isHttps) {
+    await fetch(`https://${window.location.host}/`, {
+      ...request,
+      mode: 'no-cors',
+    });
+    return;
+  }
+
+  const response = await fetch('/', request);
 
   if (!response.ok) {
     throw new Error(`Netlify form submission failed with status ${response.status}`);
